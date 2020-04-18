@@ -1,0 +1,51 @@
+#!/usr/bin/env node
+
+const http = require('http');
+const { exec } = require('child_process');
+const minimist = require('minimist');
+const argv = require('minimist')(process.argv.slice(2), {
+  boolean: ['create', 'add-bot'],
+  string: ['id', 'difficulty'],
+  alias: {
+    d: 'difficulty',
+    bot: 'add-bot'
+  },
+  default: {
+    'create': false,
+    'add-bot': false
+  }
+});
+
+const { join, create } = require('../lib/joinGame');
+const { move } = require('../lib/move');
+
+const run = async () => {
+  const gameId = argv.create ?
+    await create(argv.d, argv.bot) :
+    argv._.pop();
+
+  exec(`chrome http://light-bikes-ui.inseng.net/#${gameId}`)
+
+  let state = await join(gameId);
+  let prevDistance = 1000;
+
+  try {
+    while(true) {
+      const { board, players, 'current_player': me } = state;
+
+      const {newState, distance} = await move(gameId, me, board, players, prevDistance);
+
+      state = newState;
+      prevDistance = distance;
+    }
+  } catch (e) {
+    // game has ended in some way
+    console.log('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+    console.log('               GAME OVER                ');
+    console.log('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<');
+    console.log(JSON.stringify(e));
+    process.exit();
+  }
+};
+
+run();
